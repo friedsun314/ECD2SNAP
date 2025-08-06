@@ -101,10 +101,16 @@ def optimize(target_type, target_param, layers, truncation, batch_size,
         json.dump(target_info, f, indent=2)
     
     # Extract best parameters
-    best_idx = info['best_idx']
-    betas_array = best_params['betas'][best_idx]
-    phis_array = best_params['phis'][best_idx]
-    thetas_array = best_params['thetas'][best_idx]
+    if 'best_idx' in info:
+        best_idx = info['best_idx']
+        betas_array = best_params['betas'][best_idx]
+        phis_array = best_params['phis'][best_idx]
+        thetas_array = best_params['thetas'][best_idx]
+    else:
+        # For single parameter set (not batch)
+        betas_array = best_params['betas'].flatten() if best_params['betas'].ndim > 1 else best_params['betas']
+        phis_array = best_params['phis'].flatten() if best_params['phis'].ndim > 1 else best_params['phis']
+        thetas_array = best_params['thetas'].flatten() if best_params['thetas'].ndim > 1 else best_params['thetas']
     
     # Save optimization results
     results = {
