@@ -4,7 +4,7 @@ Test to debug displacement operator gradient issues.
 
 import jax
 import jax.numpy as jnp
-from gates import displacement_operator_jax
+from src.gates import displacement_operator_jax
 
 def test_displacement_with_better_loss():
     """Test displacement operator with a loss that actually depends on beta."""

@@ -87,7 +87,7 @@ class ECDSNAPOptimizer:
         This function constructs the full gate sequence while maintaining
         gradient flow for automatic differentiation.
         """
-        from gates import build_ecd_sequence_jax_real
+        from .gates import build_ecd_sequence_jax_real
         return build_ecd_sequence_jax_real(beta, phi, theta, N_trunc)
     
     @staticmethod

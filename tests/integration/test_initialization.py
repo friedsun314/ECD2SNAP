@@ -5,8 +5,8 @@ Test optimization with better initialization strategies.
 import numpy as np
 import jax
 import jax.numpy as jnp
-from optimizer import ECDSNAPOptimizer
-from snap_targets import make_snap_full_space
+from src.optimizer import ECDSNAPOptimizer
+from src.snap_targets import make_snap_full_space
 
 def test_with_small_init():
     """Test optimization starting from small parameters."""

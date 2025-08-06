@@ -4,9 +4,9 @@ Debug the fidelity calculation to understand why it's not working.
 
 import numpy as np
 import jax.numpy as jnp
-from gates import build_ecd_sequence_jax_real
-from snap_targets import make_snap_full_space
-from optimizer import ECDSNAPOptimizer
+from src.gates import build_ecd_sequence_jax_real
+from src.snap_targets import make_snap_full_space
+from src.optimizer import ECDSNAPOptimizer
 
 def test_fidelity_calculation():
     """Test if fidelity calculation is correct."""

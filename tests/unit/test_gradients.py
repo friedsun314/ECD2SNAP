@@ -5,14 +5,14 @@ Test script to verify JAX gradient flow through the ECD gate operations.
 import jax
 import jax.numpy as jnp
 import numpy as np
-from gates import (
+from src.gates import (
     displacement_operator_jax, 
     rotation_operator_jax,
     ecd_gate_jax,
     build_ecd_sequence_jax_real
 )
-from optimizer import ECDSNAPOptimizer
-from snap_targets import make_snap_full_space
+from src.optimizer import ECDSNAPOptimizer
+from src.snap_targets import make_snap_full_space
 
 
 def test_displacement_gradient():

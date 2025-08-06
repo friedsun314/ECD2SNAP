@@ -1,0 +1,11 @@
+{
+  "type": "identity",
+  "parameter": 0.1,
+  "phases": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "truncation": 4
+}

@@ -5,11 +5,15 @@ Tests with an identity SNAP gate which should be easy to approximate.
 
 import numpy as np
 import jax.numpy as jnp
-from optimizer import ECDSNAPOptimizer
-from snap_targets import identity_snap, linear_snap, make_snap_full_space
-from gates import build_ecd_sequence
-from viz import plot_convergence, visualize_gate_sequence
 import matplotlib.pyplot as plt
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from src.optimizer import ECDSNAPOptimizer
+from src.snap_targets import identity_snap, linear_snap, make_snap_full_space
+from src.gates import build_ecd_sequence
+from src.viz import plot_convergence, visualize_gate_sequence
 
 
 def test_identity_snap():
@@ -119,7 +123,7 @@ def test_gradient_flow():
     print("Testing gradient flow...")
     
     import jax
-    from optimizer import ECDSNAPOptimizer
+    from src.optimizer import ECDSNAPOptimizer
     
     # Small test case
     N_layers = 2

@@ -37,21 +37,19 @@ pip install -r requirements.txt
 
 ```bash
 # Optimize for a linear SNAP gate
-python cli.py optimize --target-type linear --target-param 0.5 --layers 6
+python scripts/cli.py optimize --target-type linear --target-param 0.5 --layers 6
 
-# Use custom target phases
-python cli.py optimize --target-type custom --target-file phases.json
-
-# Analyze results
-python cli.py analyze results/results.json
+# Compare different optimization strategies
+python scripts/cli.py compare-strategies
 ```
 
 ### Python API
 
 ```python
-from optimizer import ECDSNAPOptimizer
-from snap_targets import linear_snap, make_snap_full_space
+from src.optimizer import ECDSNAPOptimizer
+from src.snap_targets import linear_snap, make_snap_full_space
 import jax.numpy as jnp
+import numpy as np
 
 # Create target SNAP gate
 N_trunc = 10
@@ -77,13 +75,23 @@ print(f"Achieved fidelity: {best_fidelity:.6f}")
 
 ```
 ECD2SNAP/
-├── gates.py           # JAX-compatible quantum gate operations
-├── optimizer.py       # Main optimization engine with automatic differentiation
-├── snap_targets.py    # SNAP gate constructors and utilities
-├── viz.py            # Visualization tools for analysis
-├── cli.py            # Command-line interface
-├── test_gradients.py # Gradient flow verification tests
-└── test_simple.py    # End-to-end optimization tests
+├── src/               # Core library code
+│   ├── gates.py       # JAX-compatible quantum gate operations
+│   ├── optimizer.py   # Main optimization engine
+│   ├── improved_optimizer.py  # Enhanced optimization strategies
+│   ├── snap_targets.py  # SNAP gate constructors
+│   └── viz.py         # Visualization tools
+├── scripts/           # Command-line tools
+│   ├── cli.py         # Main CLI interface
+│   ├── simple_sgd.py  # Simple SGD optimizer
+│   └── cli_legacy.py  # Legacy CLI (archived)
+├── tests/             # Test suite
+│   ├── test_simple.py # End-to-end tests
+│   ├── test_gradients.py # Gradient verification
+│   └── ...            # Additional test files
+├── results/           # Output directory
+├── docs/              # Documentation
+└── requirements.txt   # Dependencies
 ```
 
 ## Key Components
@@ -133,6 +141,57 @@ where:
 - `D(β)`: Displacement operator
 
 The optimizer finds parameters `{β, φ, θ}` that maximize the gate fidelity with the target SNAP unitary.
+
+## Testing
+
+The project includes a comprehensive test suite organized by category:
+
+### Test Structure
+```
+tests/
+├── unit/              # Unit tests for individual components
+│   ├── test_gates.py         # Quantum gate operations
+│   ├── test_gradients.py     # Gradient flow verification
+│   ├── test_fidelity.py      # Fidelity calculations
+│   ├── test_displacement.py  # Displacement operators
+│   └── test_core_logic.py    # Core implementation logic
+├── integration/       # Integration tests for full workflows
+│   ├── test_basic_optimization.py    # End-to-end optimization
+│   ├── test_optimization_strategies.py # Different strategies
+│   ├── test_initialization.py        # Initialization methods
+│   └── test_quick_validation.py      # Quick validation tests
+├── benchmarks/        # Performance benchmarks
+│   ├── test_comprehensive.py         # Comprehensive benchmarks
+│   └── test_optimizer_comparison.py  # Optimizer comparisons
+├── conftest.py        # Shared test utilities
+└── run_tests.py       # Test suite runner
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+python tests/run_tests.py
+
+# Run specific test suites
+python tests/run_tests.py unit          # Unit tests only
+python tests/run_tests.py integration   # Integration tests only
+python tests/run_tests.py benchmarks    # Benchmarks only
+python tests/run_tests.py quick         # Quick validation
+
+# Using pytest (if installed)
+pytest tests/                           # Run all tests
+pytest tests/unit/                      # Run unit tests
+pytest -m quick                         # Run quick tests
+pytest -v --tb=short                    # Verbose with short traceback
+```
+
+### Test Coverage
+
+- **Unit Tests**: Verify individual components (gates, gradients, fidelity)
+- **Integration Tests**: Test complete optimization workflows
+- **Benchmarks**: Performance comparisons and scaling tests
+- **Quick Tests**: Rapid validation for development
 
 ## Performance
 

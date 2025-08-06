@@ -45,24 +45,15 @@ env/
 *.sublime-project
 *.sublime-workspace
 
-# Results and Output
-results/
+# Results and Output (keep results directory but ignore large files)
+results/*.pkl
+results/*.pickle
 output/
 outputs/
-*.png
-*.pdf
-*.svg
-!docs/*.png
-!docs/*.pdf
 
 # Data files
 *.npy
 *.npz
-*.pkl
-*.pickle
-*.json
-!examples/*.json
-!target.json
 
 # Logs
 *.log

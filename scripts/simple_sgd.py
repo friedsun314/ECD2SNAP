@@ -6,8 +6,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from typing import Dict, Tuple
-from gates import build_ecd_sequence_jax_real
-from snap_targets import make_snap_full_space
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from src.gates import build_ecd_sequence_jax_real
+from src.snap_targets import make_snap_full_space
 
 
 class SimpleSGDOptimizer:

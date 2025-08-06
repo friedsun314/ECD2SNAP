@@ -5,8 +5,8 @@ Test the improved optimization strategies.
 import numpy as np
 import jax
 import jax.numpy as jnp
-from improved_optimizer import ImprovedECDSNAPOptimizer
-from snap_targets import make_snap_full_space
+from src.improved_optimizer import ImprovedECDSNAPOptimizer
+from src.snap_targets import make_snap_full_space
 
 
 def test_smart_initialization():

@@ -8,17 +8,21 @@ import numpy as np
 import json
 import pickle
 from pathlib import Path
-from optimizer import ECDSNAPOptimizer
-from snap_targets import (
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from src.optimizer import ECDSNAPOptimizer
+from src.snap_targets import (
     make_snap, identity_snap, linear_snap, quadratic_snap, 
     cubic_snap, random_snap, kerr_evolution_snap
 )
-from viz import (
+from src.viz import (
     plot_convergence, plot_parameter_evolution, 
     visualize_gate_sequence, analyze_gate_decomposition, 
     plot_batch_fidelities
 )
-from gates import build_ecd_sequence
+from src.gates import build_ecd_sequence
 import jax.numpy as jnp
 
 
@@ -130,7 +134,7 @@ def optimize(layers, batch, truncation, target_type, target_param,
     )
     
     # Convert target to JAX array for full space
-    from snap_targets import make_snap_full_space
+    from src.snap_targets import make_snap_full_space
     U_target_full = make_snap_full_space(phases, truncation)
     U_target_jax = jnp.array(U_target_full.full())
     
@@ -244,7 +248,7 @@ def analyze(results_file, truncation):
         phases = np.zeros(truncation)
     
     # Reconstruct gates
-    from snap_targets import make_snap_full_space
+    from src.snap_targets import make_snap_full_space
     U_target = make_snap_full_space(phases, truncation)
     U_approx = build_ecd_sequence(
         params['betas'], params['phis'], params['thetas'], truncation

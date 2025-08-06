@@ -4,8 +4,8 @@ Verify that the quantum gates are working correctly.
 
 import numpy as np
 import jax.numpy as jnp
-from gates import displacement_operator_jax, build_ecd_sequence_jax_real
-from snap_targets import identity_snap, make_snap_full_space
+from src.gates import displacement_operator_jax, build_ecd_sequence_jax_real
+from src.snap_targets import identity_snap, make_snap_full_space
 
 def test_displacement_properties():
     """Test that displacement operator has correct properties."""

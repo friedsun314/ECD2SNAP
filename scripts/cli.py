@@ -9,8 +9,12 @@ import jax
 import jax.numpy as jnp
 import json
 import os
-from improved_optimizer import ImprovedECDSNAPOptimizer
-from snap_targets import make_snap_full_space
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from src.improved_optimizer import ImprovedECDSNAPOptimizer
+from src.snap_targets import make_snap_full_space
 
 
 @click.group()

@@ -2,13 +2,17 @@
 Comprehensive tests for the ECD-SNAP optimization system.
 """
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
 import numpy as np
 import jax
 import jax.numpy as jnp
-from simple_sgd import SimpleSGDOptimizer
-from improved_optimizer import ImprovedECDSNAPOptimizer
-from snap_targets import make_snap_full_space
-from gates import build_ecd_sequence_jax_real
+from scripts.simple_sgd import SimpleSGDOptimizer
+from src.improved_optimizer import ImprovedECDSNAPOptimizer
+from src.snap_targets import make_snap_full_space
+from src.gates import build_ecd_sequence_jax_real
 import time
 
 

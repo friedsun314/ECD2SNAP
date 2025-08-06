@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import optax
 import numpy as np
 from typing import Dict, Tuple, Optional
-from optimizer import ECDSNAPOptimizer
+from .optimizer import ECDSNAPOptimizer
 
 
 class ImprovedECDSNAPOptimizer(ECDSNAPOptimizer):
