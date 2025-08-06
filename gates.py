@@ -206,7 +206,6 @@ def ecd_gate_jax(beta: complex, N_trunc: int) -> jnp.ndarray:
     return ecd
 
 
-@jit
 def build_ecd_sequence_jax_real(betas: jnp.ndarray, 
                                 phis: jnp.ndarray, 
                                 thetas: jnp.ndarray, 

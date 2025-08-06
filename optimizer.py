@@ -131,7 +131,6 @@ class ECDSNAPOptimizer:
         
         return fidelities
     
-    @jit
     def loss_function(self, params: Dict[str, jnp.ndarray], 
                      U_target: jnp.ndarray) -> float:
         """
@@ -172,7 +171,10 @@ class ECDSNAPOptimizer:
         self.opt_state = self.optimizer.init(self.params)
         
         # Setup gradient function
-        loss_and_grad = jax.value_and_grad(self.loss_function)
+        # Create a closure that captures self for JAX
+        def loss_fn(params, target):
+            return self.loss_function(params, target)
+        loss_and_grad = jax.value_and_grad(loss_fn, argnums=0)
         
         # History tracking
         history = {

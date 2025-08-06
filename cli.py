@@ -146,9 +146,12 @@ def optimize(layers, batch, truncation, target_type, target_param,
     click.echo(f"Iterations: {info['iterations']}")
     
     # Save results
+    # Convert complex numbers to real/imag parts for JSON serialization
+    betas_array = np.array(best_params['betas'])
     results = {
         'parameters': {
-            'betas': np.array(best_params['betas']).tolist(),
+            'betas_real': np.real(betas_array).tolist(),
+            'betas_imag': np.imag(betas_array).tolist(),
             'phis': np.array(best_params['phis']).tolist(),
             'thetas': np.array(best_params['thetas']).tolist()
         },
@@ -205,8 +208,16 @@ def analyze(results_file, truncation):
     if results_file.endswith('.json'):
         with open(results_file, 'r') as f:
             data = json.load(f)
+            # Reconstruct complex betas from real/imag parts
+            if 'betas_real' in data['parameters']:
+                betas_real = np.array(data['parameters']['betas_real'])
+                betas_imag = np.array(data['parameters']['betas_imag'])
+                betas = betas_real + 1j * betas_imag
+            else:
+                # Old format compatibility
+                betas = np.array(data['parameters']['betas'])
             params = {
-                'betas': np.array(data['parameters']['betas']),
+                'betas': betas,
                 'phis': np.array(data['parameters']['phis']),
                 'thetas': np.array(data['parameters']['thetas'])
             }

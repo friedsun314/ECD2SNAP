@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import qutip as qt
 from typing import Dict, List, Optional, Tuple
-import seaborn as sns
+# import seaborn as sns  # Optional, not required
 
 
 def plot_convergence(history: Dict[str, List[float]], 
