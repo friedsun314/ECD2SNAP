@@ -1,0 +1,31 @@
+# Development and testing dependencies
+
+# Include base requirements
+-r requirements.txt
+
+# Testing frameworks
+pytest>=7.0.0
+pytest-cov>=3.0.0  # Coverage reports
+pytest-xdist>=2.5.0  # Parallel test execution
+pytest-timeout>=2.1.0  # Test timeout management
+
+# Code quality tools
+black>=22.0.0  # Code formatting
+isort>=5.10.0  # Import sorting
+flake8>=4.0.0  # Linting
+mypy>=0.950  # Type checking
+pylint>=2.13.0  # Additional linting
+
+# Documentation
+sphinx>=4.5.0  # Documentation generation
+sphinx-rtd-theme>=1.0.0  # ReadTheDocs theme
+sphinx-autodoc-typehints>=1.18.0  # Type hints in docs
+
+# Development tools
+ipython>=8.0.0  # Interactive shell
+jupyter>=1.0.0  # Jupyter notebooks
+ipdb>=0.13.0  # Interactive debugger
+
+# Performance profiling
+line-profiler>=3.5.0  # Line-by-line profiling
+memory-profiler>=0.60.0  # Memory usage profiling
