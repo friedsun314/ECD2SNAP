@@ -24,8 +24,9 @@ def test_displacement_gradient():
     
     def loss_fn(b):
         D = displacement_operator_jax(b, N_trunc)
-        # Simple loss: norm of the displacement operator
-        return jnp.real(jnp.trace(D @ jnp.conj(D.T)))
+        # Loss based on a specific matrix element that depends on beta
+        # The (0,1) element of D should vary with beta
+        return jnp.real(D[0, 1] * jnp.conj(D[0, 1]))
     
     grad_fn = jax.grad(loss_fn)
     grad = grad_fn(beta)
@@ -73,8 +74,9 @@ def test_ecd_gradient():
     
     def loss_fn(b):
         E = ecd_gate_jax(b, N_trunc)
-        # Loss based on Frobenius norm
-        return jnp.real(jnp.trace(E @ jnp.conj(E.T)))
+        # Loss based on a specific matrix element
+        # ECD gate elements should vary with beta
+        return jnp.real(E[0, 1] * jnp.conj(E[0, 1]) + E[1, 0] * jnp.conj(E[1, 0]))
     
     grad_fn = jax.grad(loss_fn)
     grad = grad_fn(beta)

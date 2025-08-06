@@ -134,10 +134,12 @@ def displacement_operator_jax(beta: complex, N_trunc: int) -> jnp.ndarray:
     # Creation and annihilation operators in Fock basis
     # a|n> = sqrt(n)|n-1>, a†|n> = sqrt(n+1)|n+1>
     
-    # Annihilation operator
-    a = jnp.zeros((N_trunc, N_trunc), dtype=jnp.complex64)
-    for n in range(1, N_trunc):
-        a = a.at[n-1, n].set(jnp.sqrt(n))
+    # Annihilation operator - vectorized construction
+    n_vals = jnp.arange(N_trunc)
+    # Create sqrt(n) values for the superdiagonal
+    sqrt_n = jnp.sqrt(n_vals)
+    # Build annihilation operator with superdiagonal
+    a = jnp.diag(sqrt_n[1:], k=1).astype(jnp.complex64)
     
     # Creation operator (Hermitian conjugate of a)
     a_dag = jnp.conj(a.T)
