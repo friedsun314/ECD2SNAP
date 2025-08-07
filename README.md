@@ -16,6 +16,7 @@ where `U_ECD` is a parameterized sequence of ECD gates and qubit rotations, and 
 
 - **JAX-based automatic differentiation** for gradient computation
 - **Multi-start batch optimization** with logarithmic barrier cost function
+- **Multiple optimization strategies** including adaptive layer selection
 - **QuTiP integration** for quantum gate operations
 - **Comprehensive visualization tools** for convergence and gate analysis
 - **Command-line interface** for easy experimentation
@@ -38,6 +39,9 @@ pip install -r requirements.txt
 ```bash
 # Optimize for a linear SNAP gate
 python scripts/cli.py optimize --target-type linear --target-param 0.5 --layers 6
+
+# Use adaptive strategy to find minimum layers needed
+python scripts/cli.py optimize --target-type identity --strategy adaptive --min-layers 2 --max-layers 8
 
 # Compare different optimization strategies
 python scripts/cli.py compare-strategies
@@ -66,9 +70,17 @@ optimizer = ECDSNAPOptimizer(
     target_fidelity=0.999
 )
 
-# Run optimization
+# Run optimization with different strategies
+# Basic optimization
 best_params, best_fidelity, info = optimizer.optimize(U_target_jax)
+
+# Or use adaptive layers to find minimum circuit depth
+best_params, best_fidelity, info = optimizer.optimize_adaptive_layers(
+    U_target_jax, min_layers=2, max_layers=8
+)
 print(f"Achieved fidelity: {best_fidelity:.6f}")
+if 'layers_used' in info:
+    print(f"Minimum layers needed: {info['layers_used']}")
 ```
 
 ## Project Structure
@@ -77,8 +89,7 @@ print(f"Achieved fidelity: {best_fidelity:.6f}")
 ECD2SNAP/
 ├── src/               # Core library code
 │   ├── gates.py       # JAX-compatible quantum gate operations
-│   ├── optimizer.py   # Main optimization engine
-│   ├── improved_optimizer.py  # Enhanced optimization strategies
+│   ├── optimizer.py   # Main optimization engine with all strategies
 │   ├── snap_targets.py  # SNAP gate constructors
 │   └── viz.py         # Visualization tools
 ├── scripts/           # Command-line tools
@@ -106,6 +117,12 @@ ECD2SNAP/
 
 - **Batch optimization**: Run multiple random initializations in parallel
 - **Logarithmic barrier cost**: `C = Σ log(1 - F_j)` for stable convergence
+- **Multiple optimization strategies**:
+  - **Basic**: Smart initialization with single run
+  - **Restarts**: Multiple random restarts for robustness
+  - **Annealing**: Learning rate decay for fine-tuning
+  - **Two-stage**: Coarse search followed by refinement
+  - **Adaptive**: Automatically determines minimum layers needed
 - **Adam optimizer** with adaptive learning rate
 - **JIT compilation** for performance
 
@@ -126,6 +143,36 @@ python test_gradients.py
 # Test full optimization pipeline
 python test_simple.py
 ```
+
+## Optimization Strategies
+
+The optimizer provides multiple strategies to handle different problem types:
+
+### Basic Strategy
+- Single optimization run with smart initialization
+- Best for simple targets (e.g., identity SNAP)
+- Fastest execution time
+
+### Restarts Strategy (Default)
+- Multiple random initializations (default: 3)
+- Keeps best solution across all attempts
+- Robust against local minima
+
+### Annealing Strategy
+- Exponential learning rate decay
+- Good balance between exploration and exploitation
+- Effective for targets requiring fine-tuning
+
+### Two-Stage Strategy
+- Stage 1: Coarse search with high learning rate (0.01)
+- Stage 2: Fine-tuning with low learning rate (0.001)
+- Ideal for complex targets needing both exploration and precision
+
+### Adaptive Layers Strategy
+- Automatically determines minimum circuit depth
+- Starts with few layers, adds more only if needed
+- Optimal for resource-constrained quantum hardware
+- Usage: `--strategy adaptive --min-layers 2 --max-layers 8`
 
 ## Algorithm Details
 

@@ -151,6 +151,78 @@ def test_two_stage_strategy():
     return best_fidelity
 
 
+def test_adaptive_layers_strategy():
+    """Test adaptive layers strategy that increases layers as needed."""
+    print("Testing adaptive layers strategy...")
+    
+    N_trunc = 6
+    batch_size = 8
+    
+    # Test with a simple target that needs few layers
+    print("\n1. Testing with simple target (identity)...")
+    phases = np.zeros(N_trunc)
+    U_target = make_snap_full_space(phases, N_trunc)
+    U_target_jax = jnp.array(U_target.full())
+    
+    optimizer = ECDSNAPOptimizer(
+        N_layers=4,  # This will be overridden by adaptive
+        N_trunc=N_trunc,
+        batch_size=batch_size,
+        learning_rate=0.003,
+        target_fidelity=0.999
+    )
+    
+    params, fidelity, info = optimizer.optimize_adaptive_layers(
+        U_target_jax,
+        max_iterations=300,
+        min_layers=2,
+        max_layers=6,
+        n_restarts=2,
+        target_type='identity',
+        verbose=False
+    )
+    
+    assert fidelity > 0.99, f"Failed to reach good fidelity: {fidelity}"
+    assert 'layers_used' in info, "Missing layers_used in info"
+    assert 'adaptive_history' in info, "Missing adaptive history"
+    
+    print(f"✓ Identity target: F={fidelity:.6f} with {info['layers_used']} layers")
+    print(f"  Layer attempts: {info['adaptive_history']['layer_attempts']}")
+    print(f"  Fidelities: {[f'{f:.4f}' for f in info['adaptive_history']['fidelities']]}")
+    
+    # Test with a harder target that needs more layers
+    print("\n2. Testing with harder target (linear)...")
+    phases = np.arange(N_trunc) * 0.1
+    U_target = make_snap_full_space(phases, N_trunc)
+    U_target_jax = jnp.array(U_target.full())
+    
+    optimizer2 = ECDSNAPOptimizer(
+        N_layers=4,
+        N_trunc=N_trunc,
+        batch_size=batch_size,
+        learning_rate=0.003,
+        target_fidelity=0.95
+    )
+    
+    params2, fidelity2, info2 = optimizer2.optimize_adaptive_layers(
+        U_target_jax,
+        max_iterations=400,
+        min_layers=2,
+        max_layers=8,
+        n_restarts=2,
+        target_type='linear',
+        verbose=False
+    )
+    
+    print(f"✓ Linear target: F={fidelity2:.6f} with {info2.get('layers_used', 'N/A')} layers")
+    if 'adaptive_history' in info2:
+        converged = info2['adaptive_history'].get('converged_at_layer', 'Did not converge')
+        print(f"  Converged at layer: {converged}")
+    
+    print("\n✓ Adaptive layers strategy test passed!")
+    return fidelity
+
+
 if __name__ == "__main__":
     print("="*60)
     print("Testing Improved Optimization Strategies")
@@ -161,6 +233,7 @@ if __name__ == "__main__":
     fidelity_restart = test_restart_strategy()
     fidelity_anneal = test_annealing_strategy()
     fidelity_two_stage = test_two_stage_strategy()
+    fidelity_adaptive = test_adaptive_layers_strategy()
     
     print("\n" + "="*60)
     print("Summary:")
@@ -168,8 +241,9 @@ if __name__ == "__main__":
     print(f"  Restart strategy: F = {fidelity_restart:.6f}")
     print(f"  Annealing strategy: F = {fidelity_anneal:.6f}")
     print(f"  Two-stage strategy: F = {fidelity_two_stage:.6f}")
+    print(f"  Adaptive layers: F = {fidelity_adaptive:.6f}")
     
-    best_fidelity = max(fidelity_restart, fidelity_anneal, fidelity_two_stage)
+    best_fidelity = max(fidelity_restart, fidelity_anneal, fidelity_two_stage, fidelity_adaptive)
     if best_fidelity > 0.9:
         print(f"\n✓ Improved strategies achieve F = {best_fidelity:.6f}")
     else:

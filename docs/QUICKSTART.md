@@ -30,13 +30,13 @@ python demo_concept.py
 pip install -r requirements.txt
 
 # Run actual optimization
-python cli.py optimize --target-type identity --layers 4
+python scripts/cli.py optimize --target-type identity --layers 4
 ```
 
 ### Option 3: Google Colab (Recommended)
 JAX comes pre-installed in Colab. Just upload the files and run:
 ```python
-!python cli.py optimize --target-type linear --target-param 0.5
+!python scripts/cli.py optimize --target-type linear --target-param 0.5
 ```
 
 ## Understanding --target-param
@@ -67,18 +67,32 @@ Larger values = more complex gates = harder to optimize
 
 ```bash
 # Simple test (easiest SNAP gate)
-python cli.py optimize --target-type identity --layers 4
+python scripts/cli.py optimize --target-type identity --layers 4
 
 # Medium difficulty
-python cli.py optimize --target-type linear --target-param 0.5
+python scripts/cli.py optimize --target-type linear --target-param 0.5
 
 # Harder optimization
-python cli.py optimize --target-type quadratic --target-param 0.2
+python scripts/cli.py optimize --target-type quadratic --target-param 0.2
 
-# Custom phases
-python cli.py generate-target --truncation 8 --output my_phases.json
-python cli.py optimize --target-type custom --target-file my_phases.json
+# Use adaptive strategy to find minimum layers
+python scripts/cli.py optimize --target-type identity --strategy adaptive
+
+# Compare all optimization strategies
+python scripts/cli.py compare-strategies
 ```
+
+## Optimization Strategies
+
+Choose the best strategy for your problem:
+
+| Strategy | Usage | Best For |
+|----------|-------|----------|
+| basic | `--strategy basic` | Simple targets, quick tests |
+| restarts | `--strategy restarts` (default) | General purpose, robust |
+| annealing | `--strategy annealing` | Complex landscapes |
+| two-stage | `--strategy two-stage` | Balanced exploration/exploitation |
+| adaptive | `--strategy adaptive --min-layers 2 --max-layers 8` | Find minimum circuit depth |
 
 ## Troubleshooting
 

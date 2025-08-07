@@ -32,13 +32,15 @@ def cli():
 @click.option('--batch-size', type=int, default=16, help='Batch size')
 @click.option('--learning-rate', type=float, default=0.003, help='Learning rate')
 @click.option('--max-iter', type=int, default=500, help='Maximum iterations')
-@click.option('--strategy', type=click.Choice(['basic', 'restarts', 'annealing', 'two-stage']),
+@click.option('--strategy', type=click.Choice(['basic', 'restarts', 'annealing', 'two-stage', 'adaptive']),
               default='restarts', help='Optimization strategy')
 @click.option('--n-restarts', type=int, default=3, help='Number of restarts (for restart strategy)')
+@click.option('--min-layers', type=int, default=2, help='Minimum layers for adaptive strategy')
+@click.option('--max-layers', type=int, default=8, help='Maximum layers for adaptive strategy')
 @click.option('--output-dir', type=str, default='results', help='Output directory')
 @click.option('--verbose', is_flag=True, help='Verbose output')
 def optimize(target_type, target_param, layers, truncation, batch_size, 
-             learning_rate, max_iter, strategy, n_restarts, output_dir, verbose):
+             learning_rate, max_iter, strategy, n_restarts, min_layers, max_layers, output_dir, verbose):
     """Run improved optimization with selected strategy."""
     
     print(f"Optimizing {target_type} SNAP gate with {strategy} strategy...")
@@ -85,6 +87,14 @@ def optimize(target_type, target_param, layers, truncation, batch_size,
         best_params, best_fidelity, info = optimizer.optimize_two_stage(
             U_target_jax, max_iter, target_type, verbose
         )
+    elif strategy == 'adaptive':
+        best_params, best_fidelity, info = optimizer.optimize_adaptive_layers(
+            U_target_jax, max_iter, min_layers, max_layers, 
+            n_restarts=2, target_type=target_type, verbose=verbose
+        )
+        # Update layers for output if adaptive was used
+        if 'layers_used' in info:
+            layers = info['layers_used']
     
     print(f"\n{'='*60}")
     print(f"Optimization complete!")
@@ -168,7 +178,7 @@ def compare_strategies():
     U_target = make_snap_full_space(phases, truncation)
     U_target_jax = jnp.array(U_target.full())
     
-    strategies = ['basic', 'restarts', 'annealing', 'two-stage']
+    strategies = ['basic', 'restarts', 'annealing', 'two-stage', 'adaptive']
     results = {}
     
     for strategy in strategies:
@@ -198,6 +208,14 @@ def compare_strategies():
             _, fidelity, _ = optimizer.optimize_two_stage(
                 U_target_jax, max_iter, target_type='identity', verbose=False
             )
+        elif strategy == 'adaptive':
+            _, fidelity, info = optimizer.optimize_adaptive_layers(
+                U_target_jax, max_iter, min_layers=2, max_layers=6,
+                n_restarts=2, target_type='identity', verbose=False
+            )
+            # Store extra info for adaptive
+            if 'layers_used' in info:
+                print(f"  (Used {info['layers_used']} layers)")
         
         results[strategy] = fidelity
         print(f"  Fidelity: {fidelity:.6f}")

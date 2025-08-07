@@ -395,6 +395,110 @@ class ECDSNAPOptimizer:
         
         return params2, fidelity2, info2
     
+    def optimize_adaptive_layers(
+        self,
+        U_target: jnp.ndarray,
+        max_iterations: int = 1000,
+        min_layers: int = 2,
+        max_layers: int = 8,
+        n_restarts: int = 2,
+        target_type: str = "identity",
+        verbose: bool = False
+    ) -> Tuple[Dict, float, Dict]:
+        """
+        Adaptive optimization that progressively increases layers until target fidelity is reached.
+        
+        This strategy starts with a small number of layers and increases them only if needed,
+        finding the minimum circuit depth required to achieve the target fidelity.
+        
+        Args:
+            U_target: Target SNAP unitary
+            max_iterations: Total iteration budget (distributed across layer attempts)
+            min_layers: Starting number of layers (default 2)
+            max_layers: Maximum layers to try (default 8)
+            n_restarts: Number of restarts per layer attempt (default 2)
+            target_type: Type of target gate for initialization
+            verbose: Whether to print progress
+        
+        Returns:
+            Tuple of (best_params, best_fidelity, info_dict)
+        """
+        
+        best_overall_fidelity = 0.0
+        best_overall_params = None
+        best_overall_info = None
+        
+        # Track history across all layer attempts
+        adaptive_history = {
+            'layer_attempts': [],
+            'fidelities': [],
+            'converged_at_layer': None
+        }
+        
+        # Distribute iterations across potential layer attempts
+        layers_to_try = max_layers - min_layers + 1
+        iterations_per_layer = max_iterations // layers_to_try
+        
+        for n_layers in range(min_layers, max_layers + 1):
+            if verbose:
+                print(f"\n{'='*60}")
+                print(f"Trying with {n_layers} layers...")
+            
+            # Create new optimizer with current layer count
+            layer_optimizer = ECDSNAPOptimizer(
+                N_layers=n_layers,
+                N_trunc=self.N_trunc,
+                batch_size=self.batch_size,
+                learning_rate=self.learning_rate,
+                target_fidelity=self.target_fidelity
+            )
+            
+            # Run optimization with restarts for this layer count
+            params, fidelity, info = layer_optimizer.optimize_with_restarts(
+                U_target,
+                max_iterations=iterations_per_layer,
+                n_restarts=n_restarts,
+                target_type=target_type,
+                verbose=verbose
+            )
+            
+            # Track results
+            adaptive_history['layer_attempts'].append(n_layers)
+            adaptive_history['fidelities'].append(float(fidelity))
+            
+            if verbose:
+                print(f"Layer {n_layers}: Achieved fidelity = {fidelity:.6f}")
+            
+            # Update best if improved
+            if fidelity > best_overall_fidelity:
+                best_overall_fidelity = fidelity
+                best_overall_params = params
+                best_overall_info = info
+                best_overall_info['layers_used'] = n_layers
+            
+            # Check if target reached
+            if fidelity >= self.target_fidelity:
+                adaptive_history['converged_at_layer'] = n_layers
+                if verbose:
+                    print(f"✓ Target fidelity reached with {n_layers} layers!")
+                break
+        
+        # Add adaptive history to info
+        if best_overall_info is not None:
+            best_overall_info['adaptive_history'] = adaptive_history
+            
+            if verbose:
+                print(f"\n{'='*60}")
+                print(f"Adaptive optimization complete:")
+                print(f"  Best fidelity: {best_overall_fidelity:.6f}")
+                print(f"  Layers used: {best_overall_info.get('layers_used', 'N/A')}")
+                if adaptive_history['converged_at_layer']:
+                    print(f"  Converged at: {adaptive_history['converged_at_layer']} layers")
+                else:
+                    print(f"  Did not converge (tried up to {max_layers} layers)")
+        
+        return best_overall_params, best_overall_fidelity, best_overall_info
+    
     def extract_best_solution(self, params: Dict[str, jnp.ndarray], 
                              fidelities: jnp.ndarray) -> Dict[str, Any]:
         """
