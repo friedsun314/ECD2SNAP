@@ -5,7 +5,7 @@ Test the improved optimization strategies.
 import numpy as np
 import jax
 import jax.numpy as jnp
-from src.improved_optimizer import ImprovedECDSNAPOptimizer
+from src.optimizer import ECDSNAPOptimizer
 from src.snap_targets import make_snap_full_space
 
 
@@ -17,7 +17,7 @@ def test_smart_initialization():
     N_trunc = 6
     batch_size = 8
     
-    optimizer = ImprovedECDSNAPOptimizer(N_layers, N_trunc, batch_size)
+    optimizer = ECDSNAPOptimizer(N_layers, N_trunc, batch_size)
     
     # Create identity target
     phases = np.zeros(N_trunc)
@@ -51,7 +51,7 @@ def test_restart_strategy():
     N_trunc = 4
     batch_size = 8
     
-    optimizer = ImprovedECDSNAPOptimizer(
+    optimizer = ECDSNAPOptimizer(
         N_layers=N_layers,
         N_trunc=N_trunc,
         batch_size=batch_size,
@@ -86,7 +86,7 @@ def test_annealing_strategy():
     N_trunc = 4
     batch_size = 8
     
-    optimizer = ImprovedECDSNAPOptimizer(
+    optimizer = ECDSNAPOptimizer(
         N_layers=N_layers,
         N_trunc=N_trunc,
         batch_size=batch_size,
@@ -120,7 +120,7 @@ def test_two_stage_strategy():
     N_trunc = 4
     batch_size = 8
     
-    optimizer = ImprovedECDSNAPOptimizer(
+    optimizer = ECDSNAPOptimizer(
         N_layers=N_layers,
         N_trunc=N_trunc,
         batch_size=batch_size

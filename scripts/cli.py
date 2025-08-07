@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.improved_optimizer import ImprovedECDSNAPOptimizer
+from src.optimizer import ECDSNAPOptimizer
 from src.snap_targets import make_snap_full_space
 
 
@@ -56,7 +56,7 @@ def optimize(target_type, target_param, layers, truncation, batch_size,
     U_target_jax = jnp.array(U_target.full())
     
     # Create optimizer
-    optimizer = ImprovedECDSNAPOptimizer(
+    optimizer = ECDSNAPOptimizer(
         N_layers=layers,
         N_trunc=truncation,
         batch_size=batch_size,
@@ -174,7 +174,7 @@ def compare_strategies():
     for strategy in strategies:
         print(f"\nTesting {strategy} strategy...")
         
-        optimizer = ImprovedECDSNAPOptimizer(
+        optimizer = ECDSNAPOptimizer(
             N_layers=layers,
             N_trunc=truncation,
             batch_size=batch_size,

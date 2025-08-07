@@ -10,7 +10,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from scripts.simple_sgd import SimpleSGDOptimizer
-from src.improved_optimizer import ImprovedECDSNAPOptimizer
+from src.optimizer import ECDSNAPOptimizer
 from src.snap_targets import make_snap_full_space
 from src.gates import build_ecd_sequence_jax_real
 import time

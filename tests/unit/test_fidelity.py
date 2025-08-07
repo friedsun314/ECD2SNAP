@@ -3,6 +3,7 @@ Debug the fidelity calculation to understand why it's not working.
 """
 
 import numpy as np
+import jax
 import jax.numpy as jnp
 from src.gates import build_ecd_sequence_jax_real
 from src.snap_targets import make_snap_full_space
