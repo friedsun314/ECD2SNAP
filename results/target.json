@@ -1,11 +1,14 @@
 {
-  "type": "identity",
+  "type": "custom",
   "parameter": 0.1,
   "phases": [
     0.0,
-    0.0,
-    0.0,
-    0.0
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    2.5
   ],
-  "truncation": 4
+  "truncation": 6,
+  "custom_phases_source": "test_phases.json"
 }
