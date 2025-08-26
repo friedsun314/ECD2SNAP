@@ -246,10 +246,14 @@ def coherent_cavity_state_tf(alpha: complex, N_trunc: int) -> tf.Tensor:
     abs_alpha = tf.abs(alpha_c)
     abs_alpha_f = tf.cast(abs_alpha, DT_FLOAT)
     log_mag = -0.5 * (abs_alpha_f ** 2) + n * tf.math.log(tf.maximum(abs_alpha_f, 1e-30)) - 0.5 * tf.math.lgamma(n + 1.0)
-    phase = tf.exp(1j * tf.cast(n, DT_COMPLEX) * tf.math.angle(alpha_c))
-    coeffs = tf.cast(tf.exp(log_mag), DT_COMPLEX) * tf.cast(phase, DT_COMPLEX)
+    # Fix the type casting issue for the phase calculation
+    n_complex = tf.cast(n, DT_COMPLEX)
+    angle_alpha = tf.cast(tf.math.angle(alpha_c), DT_FLOAT)
+    phase = tf.exp(1j * n_complex * tf.cast(angle_alpha, DT_COMPLEX))
+    coeffs = tf.cast(tf.exp(log_mag), DT_COMPLEX) * phase
     norm = tf.sqrt(tf.reduce_sum(tf.abs(coeffs) ** 2))
-    return coeffs / (norm + 1e-20)
+    norm_complex = tf.cast(norm + 1e-20, DT_COMPLEX)
+    return coeffs / norm_complex
 
 def _ket_tf(index: int, dim: int) -> tf.Tensor:
     v = tf.zeros((dim,), dtype=DT_COMPLEX)
