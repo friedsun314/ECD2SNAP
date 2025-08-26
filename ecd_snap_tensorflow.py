@@ -26,12 +26,17 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 # TensorFlow data types
+
 DT_FLOAT = tf.float32
 DT_COMPLEX = tf.complex64
 
+# Numerical stability constants
+EPS = tf.constant(1e-10, DT_FLOAT)
+LOG_EPS = tf.constant(1e-30, DT_FLOAT)
 
 
-# TensorFlow Kronecker product helper
+
+@tf.function
 def tf_kron(A, B):
     """Kronecker product using TensorFlow ops."""
     A = tf.convert_to_tensor(A)
@@ -46,6 +51,7 @@ def tf_kron(A, B):
 # ============================================================================
 # TensorFlow Gate Operations
 # ============================================================================
+@tf.function
 def displacement_operator_tf(beta: complex, N_trunc: int):
     """Create displacement operator D(beta) using TensorFlow matrix exponentiation."""
     n = tf.range(N_trunc, dtype=DT_FLOAT)
@@ -58,6 +64,7 @@ def displacement_operator_tf(beta: complex, N_trunc: int):
     op = beta_c64 * a_dag - tf.math.conj(beta_c64) * a
     return tf.linalg.expm(op)
 
+@tf.function
 def rotation_operator_tf(theta: float, phi: float):
     """Create qubit rotation R_phi(theta) using TensorFlow operations."""
     theta = tf.cast(theta, DT_FLOAT)
@@ -71,6 +78,7 @@ def rotation_operator_tf(theta: float, phi: float):
     m10 = -1j * tf.cast(sin_half, DT_COMPLEX) * ephi
     return tf.stack([tf.stack([m00, m01], axis=0), tf.stack([m10, m11], axis=0)], axis=0)
 
+@tf.function
 def ecd_gate_tf(beta: complex, N_trunc: int):
     """Create ECD gate: |0><0| ⊗ D(β) + |1><1| ⊗ D(-β)."""
     Dp = displacement_operator_tf(beta, N_trunc)
@@ -81,6 +89,7 @@ def ecd_gate_tf(beta: complex, N_trunc: int):
     term2 = tf_kron(P1, Dm)
     return term1 + term2
 
+@tf.function
 def build_ecd_sequence_tf(betas, phis, thetas, N_trunc: int):
     """Build full ECD sequence using TensorFlow operations."""
     N_layers = int(betas.shape[0]) - 1
@@ -99,18 +108,22 @@ def build_ecd_sequence_tf(betas, phis, thetas, N_trunc: int):
     U = tf.linalg.matmul(tf_kron(tf.eye(2, dtype=DT_COMPLEX), Df), U)
     return U
 
+@tf.function
 def make_snap_tf(phases, N_trunc: int):
     """Create SNAP gate unitary from phases using TensorFlow."""
     phases = tf.convert_to_tensor(phases, dtype=DT_FLOAT)
-    phases = tf.cond(tf.shape(phases)[0] < N_trunc,
-                     lambda: tf.pad(phases, [[0, N_trunc - tf.shape(phases)[0]]]),
-                     lambda: phases[:N_trunc])
+    # Slice to N_trunc if longer
+    phases = phases[:N_trunc]
+    # Pad if shorter
+    pad = tf.maximum(0, N_trunc - tf.shape(phases)[0])
+    phases = tf.pad(phases, [[0, pad]])
     Uc = tf.linalg.diag(tf.exp(1j * tf.cast(phases, DT_COMPLEX)))
     return tf_kron(tf.eye(2, dtype=DT_COMPLEX), Uc)
 
 # ============================================================================
 # TensorFlow Fidelity and Projector Functions
 # ============================================================================
+@tf.function
 def build_projector_qubit_cavity_subspace_tf(N_target: int, N_trunc: int):
     """Build projector onto qubit ⊗ {|0..N_target-1>} subspace using TensorFlow."""
     if N_target > N_trunc:
@@ -120,12 +133,14 @@ def build_projector_qubit_cavity_subspace_tf(N_target: int, N_trunc: int):
     I2 = tf.eye(2, dtype=DT_COMPLEX)
     return tf_kron(I2, P)
 
+@tf.function
 def fidelity_full_tf(U_target: tf.Tensor, U_approx: tf.Tensor) -> tf.Tensor:
     """Full-space unitary fidelity F = |Tr(U†V)|² / d² using TensorFlow."""
     d = tf.cast(tf.shape(U_target)[0], DT_FLOAT)
     tr = tf.linalg.trace(tf.linalg.adjoint(U_target) @ U_approx)
     return tf.abs(tr) ** 2 / (d ** 2)
 
+@tf.function
 def fidelity_subspace_tf(U_target: tf.Tensor, U_approx: tf.Tensor, P: tf.Tensor, N_target: int) -> tf.Tensor:
     """Subspace fidelity over qubit⊗{|0..N_target-1|} using TensorFlow."""
     d = tf.cast(2 * N_target, DT_FLOAT)
@@ -197,8 +212,7 @@ class MinimalECDOptimizer:
 
     def _loss(self, U_target: tf.Tensor) -> tf.Tensor:
         F = self._batch_fidelity(U_target)
-        eps = tf.constant(1e-10, dtype=DT_FLOAT)
-        return tf.reduce_sum(tf.math.log(tf.maximum(1.0 - F, eps)))
+        return tf.reduce_sum(tf.math.log(tf.maximum(1.0 - F, EPS)))
 
     def optimize(self, U_target: tf.Tensor, max_iter: int = 300, verbose: bool = True):
         history = {'loss': [], 'max_fidelity': []}
@@ -233,27 +247,28 @@ class MinimalECDOptimizer:
 # ============================================================================
 # TensorFlow Tail probability utilities (Step 3)
 # ============================================================================
+@tf.function
 def cavity_tail_probability_tf(cavity_state: tf.Tensor, N_target: int) -> tf.Tensor:
     p = tf.abs(cavity_state) ** 2
     return tf.reduce_sum(p[N_target:])
 
+@tf.function
 def split_qubit_blocks_tf(psi_full: tf.Tensor, N_trunc: int):
     return psi_full[:N_trunc], psi_full[N_trunc:]
 
+@tf.function
 def coherent_cavity_state_tf(alpha: complex, N_trunc: int) -> tf.Tensor:
     n = tf.range(N_trunc, dtype=DT_FLOAT)
     alpha_c = tf.cast(alpha, DT_COMPLEX)
     abs_alpha = tf.abs(alpha_c)
     abs_alpha_f = tf.cast(abs_alpha, DT_FLOAT)
-    log_mag = -0.5 * (abs_alpha_f ** 2) + n * tf.math.log(tf.maximum(abs_alpha_f, 1e-30)) - 0.5 * tf.math.lgamma(n + 1.0)
-    # Fix the type casting issue for the phase calculation
-    n_complex = tf.cast(n, DT_COMPLEX)
-    angle_alpha = tf.cast(tf.math.angle(alpha_c), DT_FLOAT)
-    phase = tf.exp(1j * n_complex * tf.cast(angle_alpha, DT_COMPLEX))
+    log_mag = -0.5 * (abs_alpha_f ** 2) + n * tf.math.log(tf.maximum(abs_alpha_f, LOG_EPS)) - 0.5 * tf.math.lgamma(n + 1.0)
+    # phase: exp(i * n * angle(alpha))
+    angle_alpha = tf.math.angle(alpha_c)
+    phase = tf.exp(1j * tf.cast(n, DT_COMPLEX) * tf.cast(angle_alpha, DT_COMPLEX))
     coeffs = tf.cast(tf.exp(log_mag), DT_COMPLEX) * phase
     norm = tf.sqrt(tf.reduce_sum(tf.abs(coeffs) ** 2))
-    norm_complex = tf.cast(norm + 1e-20, DT_COMPLEX)
-    return coeffs / norm_complex
+    return coeffs / tf.cast(norm + EPS, DT_COMPLEX)
 
 def _ket_tf(index: int, dim: int) -> tf.Tensor:
     v = tf.zeros((dim,), dtype=DT_COMPLEX)
@@ -265,25 +280,28 @@ def _alpha_envelope_tf(betas: tf.Tensor) -> tf.Tensor:
 def _tails_for_input_tf(U: tf.Tensor, psi_in: tf.Tensor, N_trunc: int, N_target: int):
     out = U @ psi_in
     cav_q0, cav_q1 = split_qubit_blocks_tf(out, N_trunc)
-    t_q0 = float(cavity_tail_probability_tf(cav_q0, N_target).numpy())
-    t_q1 = float(cavity_tail_probability_tf(cav_q1, N_target).numpy())
+    t_q0 = cavity_tail_probability_tf(cav_q0, N_target)
+    t_q1 = cavity_tail_probability_tf(cav_q1, N_target)
     return t_q0, t_q1
 
 def measure_tail_probs_tf(U_best: tf.Tensor, N_target: int, N_trunc: int, betas: tf.Tensor) -> Dict[str, float]:
     dim = 2 * N_trunc
+    # Basis probes
     t0_q0, t0_q1 = _tails_for_input_tf(U_best, _ket_tf(0, dim), N_trunc, N_target)
     t1_q0, t1_q1 = _tails_for_input_tf(U_best, _ket_tf(N_trunc, dim), N_trunc, N_target)
+    # Coherent-state probe based on conservative envelope
     alpha_env = _alpha_envelope_tf(betas)
     cav_alpha = coherent_cavity_state_tf(alpha_env, N_trunc)
     psi_alpha = tf.concat([cav_alpha, tf.zeros_like(cav_alpha)], axis=0)
     ta_q0, ta_q1 = _tails_for_input_tf(U_best, psi_alpha, N_trunc, N_target)
-    max_tail = max(t0_q0, t0_q1, t1_q0, t1_q1, ta_q0, ta_q1)
+    max_tail = tf.reduce_max(tf.stack([t0_q0, t0_q1, t1_q0, t1_q1, ta_q0, ta_q1]))
+    # Convert to Python floats for printing / dict
     return {
-        't0_q0': t0_q0, 't0_q1': t0_q1,
-        't1_q0': t1_q0, 't1_q1': t1_q1,
-        'ta_q0': ta_q0, 'ta_q1': ta_q1,
+        't0_q0': float(t0_q0.numpy()), 't0_q1': float(t0_q1.numpy()),
+        't1_q0': float(t1_q0.numpy()), 't1_q1': float(t1_q1.numpy()),
+        'ta_q0': float(ta_q0.numpy()), 'ta_q1': float(ta_q1.numpy()),
         'alpha_abs': float(tf.abs(alpha_env).numpy()),
-        'max_tail': float(max_tail),
+        'max_tail': float(max_tail.numpy()),
     }
 
 # ============================================================================
