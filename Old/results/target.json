@@ -1,0 +1,11 @@
+{
+  "type": "identity",
+  "phases_input": "0.1",
+  "phases": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "truncation": 4
+}

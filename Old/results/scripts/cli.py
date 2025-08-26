@@ -17,16 +17,17 @@ from src.optimizer import ECDSNAPOptimizer
 from src.snap_targets import make_snap_full_space
 
 
+
 @click.group()
 def cli():
-    """Improved ECD to SNAP gate optimizer."""
+    """ECD to SNAP gate optimizer."""
     pass
 
 
 @cli.command()
-@click.option('--target-type', type=click.Choice(['identity', 'linear', 'quadratic']), 
+@click.option('--target-type', type=click.Choice(['identity', 'linear', 'quadratic', 'custom']), 
               default='identity', help='Type of SNAP gate')
-@click.option('--target-param', type=float, default=0.1, help='Target parameter')
+@click.option('--phases', type=str, default='0.1', help='Phases: single parameter for built-in types (e.g., "0.5"), comma-separated values for custom (e.g., "0,0.5,1.0,1.5"), or path to file')
 @click.option('--layers', type=int, default=4, help='Number of ECD layers')
 @click.option('--truncation', type=int, default=6, help='Fock space truncation')
 @click.option('--batch-size', type=int, default=16, help='Batch size')
@@ -39,22 +40,69 @@ def cli():
 @click.option('--max-layers', type=int, default=8, help='Maximum layers for adaptive strategy')
 @click.option('--output-dir', type=str, default='results', help='Output directory')
 @click.option('--verbose', is_flag=True, help='Verbose output')
-def optimize(target_type, target_param, layers, truncation, batch_size, 
+def optimize(target_type, phases, layers, truncation, batch_size, 
              learning_rate, max_iter, strategy, n_restarts, min_layers, max_layers, output_dir, verbose):
     """Run improved optimization with selected strategy."""
     
     print(f"Optimizing {target_type} SNAP gate with {strategy} strategy...")
     print(f"Config: layers={layers}, truncation={truncation}, batch={batch_size}")
     
-    # Create target
-    if target_type == 'identity':
-        phases = np.zeros(truncation)
-    elif target_type == 'linear':
-        phases = np.arange(truncation) * target_param
-    elif target_type == 'quadratic':
-        phases = np.arange(truncation)**2 * target_param
+    # Parse and create target phases
+    def parse_phases(phases_str, target_type):
+        """Parse phases parameter based on target type."""
+        if target_type == 'identity':
+            return np.zeros(truncation)
+        elif target_type in ['linear', 'quadratic']:
+            # Single parameter for built-in types
+            try:
+                param = float(phases_str)
+                if target_type == 'linear':
+                    return np.arange(truncation) * param
+                else:  # quadratic
+                    return np.arange(truncation)**2 * param
+            except ValueError:
+                raise click.ClickException(f"For {target_type} type, phases must be a single number (e.g., '0.5'), got: '{phases_str}'")
+        elif target_type == 'custom':
+            # Custom phases: comma-separated or file
+            # Check if it's a file path
+            if os.path.exists(phases_str):
+                try:
+                    # Try loading as numpy file first
+                    if phases_str.endswith('.npy'):
+                        return np.load(phases_str)
+                    else:
+                        # Try loading as text file (JSON, CSV, or simple text)
+                        with open(phases_str, 'r') as f:
+                            content = f.read().strip()
+                            if content.startswith('[') and content.endswith(']'):
+                                # JSON array
+                                return np.array(json.loads(content))
+                            else:
+                                # Comma-separated or whitespace-separated
+                                return np.array([float(x.strip()) for x in content.replace(',', ' ').split() if x.strip()])
+                except Exception as e:
+                    raise click.ClickException(f"Error reading phases from file '{phases_str}': {e}")
+            else:
+                # Parse as comma-separated values
+                try:
+                    return np.array([float(x.strip()) for x in phases_str.split(',') if x.strip()])
+                except ValueError as e:
+                    raise click.ClickException(f"Error parsing custom phases '{phases_str}': {e}")
+        else:
+            raise click.ClickException(f"Unknown target type: {target_type}")
     
-    U_target = make_snap_full_space(phases, truncation)
+    # Create target phases
+    phase_array = parse_phases(phases, target_type)
+    
+    if target_type == 'custom':
+        print(f"Using custom phases: {phase_array}")
+        if len(phase_array) != truncation:
+            if len(phase_array) < truncation:
+                print(f"Warning: Custom phases ({len(phase_array)}) shorter than truncation ({truncation}), padding with zeros.")
+            else:
+                print(f"Warning: Custom phases ({len(phase_array)}) longer than truncation ({truncation}), truncating.")
+    
+    U_target = make_snap_full_space(phase_array, truncation)
     U_target_jax = jnp.array(U_target.full())
     
     # Create optimizer
@@ -107,8 +155,8 @@ def optimize(target_type, target_param, layers, truncation, batch_size,
     # Save target info
     target_info = {
         'type': target_type,
-        'parameter': target_param,
-        'phases': phases.tolist(),
+        'phases_input': phases,
+        'phases': phase_array.tolist(),
         'truncation': truncation
     }
     with open(os.path.join(output_dir, 'target.json'), 'w') as f:
@@ -228,6 +276,52 @@ def compare_strategies():
     
     best_strategy = max(results, key=results.get)
     print(f"\nBest strategy: {best_strategy} (F = {results[best_strategy]:.6f})")
+
+
+@cli.command()
+@click.option('--examples', is_flag=True, help='Show usage examples')
+def phases_help(examples):
+    """Show help for using the --phases parameter."""
+    print("Phases Parameter Usage Guide")
+    print("=" * 40)
+    print()
+    print("The --phases parameter works differently based on target type:")
+    print()
+    print("1. Built-in types (identity, linear, quadratic):")
+    print("   --phases \"0.5\"  # Single parameter")
+    print()
+    print("2. Custom type - Comma-separated values:")
+    print("   --phases \"0,0.5,1.0,1.5,2.0,2.5\"")
+    print()
+    print("3. Custom type - Path to text file:")
+    print("   --phases phases.txt")
+    print("   (Content: 0 0.5 1.0 1.5 2.0 2.5)")
+    print()
+    print("4. Custom type - Path to JSON file:")
+    print("   --phases phases.json")
+    print("   (Content: [0, 0.5, 1.0, 1.5, 2.0, 2.5])")
+    print()
+    print("5. Custom type - Path to NumPy .npy file:")
+    print("   --phases phases.npy")
+    print()
+    
+    if examples:
+        print("\nExample Usage Commands:")
+        print("-" * 25)
+        print()
+        print("# Built-in types with parameter:")
+        print('python scripts/cli.py optimize --target-type linear --phases "0.5"')
+        print('python scripts/cli.py optimize --target-type quadratic --phases "0.1"')
+        print()
+        print("# Custom phases directly:")
+        print('python scripts/cli.py optimize --target-type custom --phases "0,0.5,1.0,0.5,0,-0.5,-1.0,-0.5"')
+        print()
+        print("# Custom phases from file:")
+        print('echo "0.1 0.7 2.3 0.9 1.5 3.1" > my_phases.txt')
+        print('python scripts/cli.py optimize --target-type custom --phases my_phases.txt')
+        print()
+        print("# Identity (phases parameter ignored):")
+        print('python scripts/cli.py optimize --target-type identity')
 
 
 if __name__ == '__main__':
