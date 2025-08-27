@@ -3,17 +3,20 @@
 Minimal ECD-to-SNAP Gate Optimization Script
 
 A self-contained script that optimizes ECD gate sequences to approximate 
-SNAP gates using TensorFlow.
+SNAP gates using TensorFlow. Automatically handles all algorithmic parameters 
+internally for a clean, simple interface.
 
-Concepts:
-  • target-levels (N_target): number of cavity Fock levels whose phases you actually care about.
-    The score (fidelity) is computed only on this subspace.
-  • truncation (N_trunc): size of the truncated Hilbert space used for simulation.
-    Choose N_trunc = N_target + guard, where guard (8–20) provides headroom so boundary effects are negligible.
+The script automatically:
+  • Searches optimal layer depth (0 to 6 layers)
+  • Sets N_target = len(phases) (number of levels to optimize)
+  • Manages truncation with adaptive guard bands
+  • Uses stable batch size and learning rate
+  • Shows tail probability analysis
 
 Usage:
-    python ecd_snap_tensorflow.py --phases "0,0.5,1.0,1.5" --layers 4
+    python ecd_snap_tensorflow.py --phases "0,0.5,1.0,1.5"
     python ecd_snap_tensorflow.py --phases phases.txt --plot
+    python ecd_snap_tensorflow.py --phases phases.npy --max-iter 2000 --output-dir results
 """
 
 # Imports (TensorFlow + utilities)
@@ -33,6 +36,16 @@ DT_COMPLEX = tf.complex64
 # Numerical stability constants
 EPS = tf.constant(1e-10, DT_FLOAT)
 LOG_EPS = tf.constant(1e-30, DT_FLOAT)
+
+# Internal algorithm constants (previously CLI parameters)
+MAX_LAYERS = 6                # Maximum ECD layers to search (was --layers)
+BASE_BATCH_SIZE = 16         # Base batch size before adaptive scaling (was --batch-size) 
+LEARNING_RATE = 3e-3         # Stable learning rate (was --learning-rate)
+GUARD_INIT = 8               # Initial guard band (was --guard-init)
+GUARD_STEP = 4               # Guard band increment (was --guard-step)
+GUARD_MAX = 64               # Maximum guard levels (was --guard-max)
+TAIL_THRESHOLD = 1e-6        # Tail probability threshold (was --tail-threshold)
+TARGET_FIDELITY = 0.999      # Target fidelity for optimization
 
 
 
@@ -422,32 +435,12 @@ def main():
     parser = argparse.ArgumentParser(description='Minimal ECD-to-SNAP Optimizer')
     parser.add_argument('--phases', required=True,
                         help='Target phases: comma-separated values or file path')
-    parser.add_argument('--layers', type=int, default=4,
-                        help='Max ECD layers; searches 0..L and picks minimal depth')
-    parser.add_argument('--truncation', type=int, default=6,
-                        help='Fock space simulation cutoff (use guard band, default: 6)')
-    parser.add_argument('--batch-size', type=int, default=16,
-                        help='Batch size for multi-start (default: 16)')
     parser.add_argument('--max-iter', type=int, default=1000,
                         help='Maximum iterations (default: 1000)')
-    parser.add_argument('--learning-rate', type=float, default=3e-3,
-                        help='Learning rate (default: 3e-3)')
     parser.add_argument('--plot', action='store_true',
-                        help='Show convergence plot')
+                        help='Generate convergence plot')
     parser.add_argument('--output-dir', default='results_minimal',
                         help='Output directory (default: results_minimal)')
-    parser.add_argument('--target-levels', type=int, default=None,
-                        help='N_target: number of cavity levels to score fidelity on (default: len(phases))')
-    parser.add_argument('--tail-check', action='store_true',
-                        help='After optimization, report tail probabilities above N_target for probe states')
-    parser.add_argument('--guard-init', type=int, default=8,
-                        help='Initial guard band (default: 8)')
-    parser.add_argument('--guard-step', type=int, default=4,
-                        help='Guard band increment when tails too large (default: 4)')
-    parser.add_argument('--guard-max', type=int, default=64,
-                        help='Maximum extra levels beyond N_target (default: 64)')
-    parser.add_argument('--tail-threshold', type=float, default=1e-6,
-                        help='Acceptable probability above N_target (default: 1e-6)')
     args = parser.parse_args()
     
     # Parse phases
@@ -457,15 +450,10 @@ def main():
         raise ValueError("No phases provided. Please specify at least one phase value.")
     print(f"Target phases: {phases}")
 
-    # Validate arguments
-    if args.layers < 0:
-        raise ValueError("Number of layers must be non-negative.")
-    
-    # Set N_target (scored levels) and print
-    N_target = args.target_levels if args.target_levels is not None else len(phases)
-    print(f"N_target (scored levels): {N_target}  |  N_trunc (simulated): {args.truncation}")
-    if args.truncation < N_target:
-        print(f"Note: increasing N_trunc automatically (auto-guard) since truncation={args.truncation} < N_target={N_target}")
+    # Set N_target (scored levels) - always len(phases)
+    N_target = len(phases)
+    print(f"N_target (scored levels): {N_target}")
+    print(f"Internal settings: max_layers={MAX_LAYERS}, batch_size={BASE_BATCH_SIZE}, learning_rate={LEARNING_RATE}")
 
     # Report TensorFlow device availability
     gpus = tf.config.list_physical_devices('GPU')
@@ -473,7 +461,7 @@ def main():
     print(f"TensorFlow devices -> GPU: {len(gpus)} | CPU: {len(cpus)}")
 
     # Depth search with guard logic
-    L_max = int(args.layers)
+    L_max = MAX_LAYERS
     final_params = None
     final_fidelity = 0.0
     final_info = None
@@ -485,12 +473,12 @@ def main():
     best_params = None
     best_fidelity = 0.0
     info = None
-    current_trunc = max(args.truncation, N_target + args.guard_init)
+    current_trunc = N_target + GUARD_INIT  # Start with N_target + guard
     optimizer_tf = None  # Initialize optimizer reference
 
     for depth in range(L_max + 1):
         print(f"\n====== Depth search: trying N_layers = {depth} (max {L_max}) ======")
-        current_trunc = max(args.truncation, N_target + args.guard_init)
+        current_trunc = N_target + GUARD_INIT
 
         best_params = None
         best_fidelity = 0.0
@@ -501,7 +489,7 @@ def main():
             print(f"\n=== Optimizing with N_trunc = {current_trunc} (N_target = {N_target}, N_layers = {depth}) ===")
             U_target_tf = make_snap_tf(tf.constant(phases, dtype=DT_FLOAT), current_trunc)
             optimizer_tf = MinimalECDOptimizer(N_layers=depth, N_trunc=current_trunc, N_target=N_target,
-                                                batch_size=args.batch_size, learning_rate=args.learning_rate)
+                                                batch_size=BASE_BATCH_SIZE, learning_rate=LEARNING_RATE)
             optimizer_tf.initialize_parameters(seed=42)
             print("Optimizing...")
             params_tf, fid_tf, info_tf = optimizer_tf.optimize(U_target_tf, max_iter=args.max_iter, verbose=True)
@@ -518,19 +506,19 @@ def main():
             # Cache the computed unitary for later use
             cached_U_best = U_best_tf
             max_tail = metrics['max_tail']
-            print(f"Tail check @ N_trunc={current_trunc}: max_tail={max_tail:.3e} (threshold={args.tail_threshold:.1e})")
-            if (max_tail <= args.tail_threshold) and (best_fidelity >= optimizer_tf.target_fidelity):
+            print(f"Tail check @ N_trunc={current_trunc}: max_tail={max_tail:.3e} (threshold={TAIL_THRESHOLD:.1e})")
+            if (max_tail <= TAIL_THRESHOLD) and (best_fidelity >= optimizer_tf.target_fidelity):
                 print("✓ Guard band sufficient (tails below threshold) and target fidelity met.")
                 break
 
-            next_trunc = current_trunc + args.guard_step
-            max_trunc = N_target + args.guard_max
+            next_trunc = current_trunc + GUARD_STEP
+            max_trunc = N_target + GUARD_MAX
             if next_trunc > max_trunc:
                 print(f"Warning: Reached guard ceiling (N_trunc={next_trunc} > {max_trunc}). Stopping depth {depth}.")
                 break
             current_trunc = next_trunc
 
-        if _success(best_fidelity, metrics, optimizer_tf.target_fidelity, True, args.tail_threshold):
+        if _success(best_fidelity, metrics, optimizer_tf.target_fidelity, True, TAIL_THRESHOLD):
             final_params = best_params
             final_fidelity = best_fidelity
             final_info = info
@@ -558,10 +546,11 @@ def main():
     current_trunc = final_trunc
 
     # Use a default target fidelity if optimizer wasn't created
-    target_fid_display = optimizer_tf.target_fidelity if optimizer_tf is not None else 0.999
-    print(f"\n>>> Final choice: N_layers={final_layers}, N_trunc={current_trunc}, fidelity={best_fidelity:.6f} | target≥{target_fid_display:.6f}, tail≤{args.tail_threshold:.1e}")
+    target_fid_display = optimizer_tf.target_fidelity if optimizer_tf is not None else TARGET_FIDELITY
+    print(f"\n>>> Final choice: N_layers={final_layers}, N_trunc={current_trunc}, fidelity={best_fidelity:.6f} | target≥{target_fid_display:.6f}, tail≤{TAIL_THRESHOLD:.1e}")
 
-    if args.tail_check and best_params is not None:
+    # Always show tail report
+    if best_params is not None:
         # Use cached metrics if available, otherwise compute
         if final_metrics is not None:
             print_tail_report(final_metrics)
